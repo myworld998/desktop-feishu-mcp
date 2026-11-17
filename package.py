@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 PUBLIC_FILES = (
     ".gitignore", "config.example.json", "server.py", "listener.py",
     "configuration.py", "setup.py", "run-listener.bat", "package.py",
-    "README.md", "LICENSE", "CONTRIBUTING.md", "SECURITY.md",
+    "README.md", "README.zh-CN.md", "LICENSE", "CONTRIBUTING.md", "SECURITY.md",
     "docs/setup.md", "docs/verification.md", "tests/test_project.py",
     ".github/workflows/ci.yml", ".github/ISSUE_TEMPLATE/bug_report.md",
     ".github/ISSUE_TEMPLATE/feature_request.md", ".github/pull_request_template.md",

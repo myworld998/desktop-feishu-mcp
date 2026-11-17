@@ -1,114 +1,116 @@
 # desktop-feishu-mcp
 
-把 AI 的确认问题发到飞书，在手机上点选或输入意见，再把回复交回原来的 MCP 会话。
+Send an AI's confirmation questions to Feishu, tap or type a reply on your phone, and hand the answer back to the originating MCP session.
 
-适合需要离开电脑、但仍希望参与关键决定的本地工作流。支持 Claude Desktop、Claude Code 及兼容本地 stdio MCP 的客户端。项目使用 Python 标准库调用官方 [lark-cli](https://github.com/larksuite/cli)，无需公网服务器。
+Built for local workflows where you need to step away from the computer but still want to weigh in on key decisions. Works with Claude Desktop, Claude Code, and any client that speaks local stdio MCP. The project uses only the Python standard library to drive the official [lark-cli](https://github.com/larksuite/cli) — no public server required.
+
+> 中文说明见 [README.zh-CN.md](README.zh-CN.md)
 
 ```mermaid
 sequenceDiagram
-    participant C as MCP 客户端
+    participant C as MCP client
     participant S as server.py
-    participant F as 飞书 / lark-cli
+    participant F as Feishu / lark-cli
     participant L as listener.py
-    participant U as 用户手机
+    participant U as User phone
     C->>S: ask_user(question, options, level, timeout_sec)
-    S->>F: 发送 JSON 2.0 交互卡片
-    S->>S: 保存原卡到 cards/request_id.json
-    F->>U: 展示快捷按钮和意见表单
-    U->>F: 选择 / 提交意见
-    F->>L: 长连接 card.action.trigger
-    L->>L: 原子写入 results/request_id.json
-    L->>F: card/update：保留内容、变灰、禁用
-    S->>S: 轮询对应的结果文件
-    S-->>C: 返回回复文本
+    S->>F: Send JSON 2.0 interactive card
+    S->>S: Cache original card to cards/request_id.json
+    F->>U: Show quick buttons and opinion form
+    U->>F: Pick an option / submit opinion
+    F->>L: Long-connection card.action.trigger
+    L->>L: Atomic write to results/request_id.json
+    L->>F: card/update: keep content, grey out, disable
+    S->>S: Poll the matching result file
+    S-->>C: Return the reply text
 ```
 
-> 实际实现先发送卡片、成功后缓存原卡；极速点击可能使状态更新临时使用简化卡片，回复仍可回传。
+> The implementation sends the card first and caches it on success; an extremely fast tap may briefly fall back to a simplified card for the state update, but the reply is still delivered.
 
-## 功能
+## Features
 
-- Markdown 问题、快捷选项、自由意见；普通 / 警告 / 紧急三种等级。
-- 按请求 ID 关联回调；多个 MCP server 进程可以共享一个 listener。
-- 回复后重建原卡，保留问题和选项，显示回复并禁用交互。
-- 卡片发送失败时尝试文字消息及轮询回退。
-- Windows、macOS、Linux 配置和 CLI 探测；前台、后台及自启配置生成。
-- 本地配置与环境变量，凭据全部交给 lark-cli 管理。
+- Markdown questions, quick options, and free-form opinion; notice / warning / urgent levels.
+- Callbacks keyed by request ID; multiple MCP server processes can share one listener.
+- After a reply, the original card is rebuilt with the question and options preserved, the reply shown, and the interaction disabled.
+- Falls back to a text message plus polling when card sending fails.
+- Windows, macOS, and Linux configuration and CLI discovery; foreground, background, and startup-config generation.
+- Local config and environment variables; all credentials are handled by lark-cli.
 
-## 前置依赖
+## Prerequisites
 
-- Python **3.10+**，不需要 `pip install`。
-- Node.js LTS（npm 包声明最低 Node 16；建议使用仍受支持的 LTS）。使用原生 lark-cli 时运行时可以不依赖 Node。
-- 官方 `@larksuite/cli`，需要支持 `im +messages-send`、`im +chat-messages-list`、`event consume card.action.trigger` 和原始 `api` 命令。
-- 一个启用机器人的飞书企业自建应用；应用可用范围包含使用者。跨租户 / 国际版 Lark 需要自行核验后台及 CLI 配置。
-- 电脑、listener 和 MCP 客户端保持运行，网络能访问飞书服务。
+- Python **3.10+** — no `pip install` needed.
+- Node.js LTS (the npm package declares Node 16 as minimum; an actively supported LTS is recommended). The Node runtime is not required when using a native lark-cli binary.
+- The official `@larksuite/cli`, with support for `im +messages-send`, `im +chat-messages-list`, `event consume card.action.trigger`, and raw `api` commands.
+- A Feishu/Lark self-built app with a bot enabled, whose availability scope includes the user. Cross-tenant / international Lark deployments need their own console and CLI verification.
+- The computer, listener, and MCP client stay running with network access to Feishu services.
 
-## 安装
+## Installation
 
-1. 下载仓库 ZIP 解压，或克隆你使用的仓库地址，进入 `desktop-feishu-mcp`。以下命令都在项目目录运行。Windows 可将 `python` 换成 `py -3`，macOS/Linux 可用 `python3`。
-2. 安装 Python 和 [Node.js LTS](https://nodejs.org/en/download)。安装后重新打开终端，检查 `python --version`、`node --version`。
-3. 安装 lark-cli。官方安装入口为 `npx @larksuite/cli@latest install`，它有自己的安装向导。若希望 npm 包仅位于项目目录：
+1. Download the repository ZIP and extract it, or clone your repository URL, then enter `desktop-feishu-mcp`. All commands below run from the project directory. On Windows you may use `py -3` instead of `python`; on macOS/Linux use `python3`.
+2. Install Python and [Node.js LTS](https://nodejs.org/en/download). Reopen the terminal afterwards and check `python --version` and `node --version`.
+3. Install lark-cli. The official entry point is `npx @larksuite/cli@latest install`, which runs its own setup wizard. To keep the npm package local to the project:
 
    ```sh
    npm install --prefix .local/deps @larksuite/cli
    node .local/deps/node_modules/@larksuite/cli/scripts/run.js --version
    ```
 
-   本项目会探测这个本地 runner。后续文档中的 `lark-cli` 可替换为 `node .local/deps/node_modules/@larksuite/cli/scripts/run.js`。npm 安装脚本会下载 CLI 原生二进制；失败时看终端错误，勿把包安装成功当成二进制已可运行。
+   The project auto-discovers this local runner. In the rest of the docs, `lark-cli` can be replaced with `node .local/deps/node_modules/@larksuite/cli/scripts/run.js`. The npm install script downloads the CLI's native binary; on failure read the terminal error, and do not mistake a successful package install for a working binary.
 
-4. **先完成 [飞书后台与授权设置](docs/setup.md)**：创建独立应用、开通权限、启用新版卡片回调、发布版本。在相同 profile 下配置 CLI。这里只要 bot 身份就能运行；OAuth 是自动列私聊等用户操作的可选步骤。
-5. 初始化配置与检查依赖：
+4. **Finish [Feishu console and authorization setup](docs/setup.md) first**: create a dedicated app, enable permissions, enable the new card callback, and publish a version. Configure the CLI under the same profile. Bot identity alone is enough to run; OAuth is the optional step for user-side operations such as auto-listing private chats.
+5. Initialize config and check dependencies:
 
    ```sh
    python setup.py
    ```
 
-   向导检查依赖、询问目标用户与会话、生成 `config.json`、打印后台步骤和生成 MCP 片段。已有配置会保留。不会修改系统、用户全局配置或启动 listener；需要重生成片段时显式使用 `registration --replace`。
+   The wizard checks dependencies, asks for the target user and chat, generates `config.json`, prints the console steps, and generates the MCP snippet. Existing config is preserved. It does not modify the system, user-global config, or start the listener; to regenerate the snippet explicitly use `registration --replace`.
 
-6. 检查消息读取与长连接就绪：
+6. Check message-read and long-connection readiness:
 
    ```sh
    python setup.py verify
    ```
 
-   此命令不发送消息，也不能证明后台已启用回调。停止已有 listener，再执行 `python setup.py verify --interactive`，确认发送测试卡并在 60 秒内点选，验证完整链路。
+   This command sends nothing and cannot prove the callback is enabled in the console. Stop any existing listener, then run `python setup.py verify --interactive` to send a test card and tap it within 60 seconds to verify the full path.
 
-7. 启动一个常驻 listener，另一个终端运行 MCP 客户端：
+7. Start one resident listener, and run the MCP client in another terminal:
 
    ```sh
    python setup.py listener --mode foreground
    ```
 
-   想后台运行可用 `--mode background`，日志在 `listener.log`，PID 在 `.local/listener.pid`；后台启动返回不等于连接已就绪。`--mode startup` 仅生成系统对应的自启文件，安装与撤销见 [setup 文档](docs/setup.md#后台与开机自启)。不要同时运行多个 listener。
+   Use `--mode background` to run in the background, with logs in `listener.log` and the PID in `.local/listener.pid`; a background start returning does not mean the connection is ready. `--mode startup` only generates the OS-specific autostart file — installation and removal are covered in the [setup docs](docs/setup.md#background-and-autostart). Do not run more than one listener.
 
-## 配置
+## Configuration
 
-复制 `config.example.json` 为 `config.json`，或运行 `python setup.py configure`。所有相对路径以项目目录为基准，与客户端工作目录无关。优先级：**环境变量 > 本地配置 > 默认值**。
+Copy `config.example.json` to `config.json`, or run `python setup.py configure`. All relative paths are resolved against the project directory, independent of the client's working directory. Precedence: **environment variables > local config > defaults**.
 
-| 配置字段 | 环境变量 | 说明 |
+| Config field | Environment variable | Notes |
 | --- | --- | --- |
-| `user_open_id` | `FEISHU_USER_OPEN_ID` | 允许回复的用户；留空允许目标会话内任意用户，适合受控群聊。不能填示例占位符 |
-| `chat_id` | `FEISHU_CHAT_ID` | 必填，机器人私聊或已加入的群聊 |
-| `cli_config_dir` | `LARKSUITE_CLI_CONFIG_DIR` | 默认 `.lark-cli`；只将路径传给 CLI，本项目不打开 profile |
-| `node_exe` | `FEISHU_NODE_EXE` | 可选，Node 路径；默认探测 PATH |
-| `lark_cli_run_js` | `FEISHU_LARK_CLI_RUN_JS` | 可选，npm 包 `scripts/run.js` 路径 |
-| `lark_cli_executable` | `FEISHU_LARK_CLI_EXECUTABLE` | 可选，原生 CLI 可执行路径；设置后优先于 Node runner，不接受 Windows shell shim |
-| `results_dir` / `cards_dir` | `FEISHU_RESULTS_DIR` / `FEISHU_CARDS_DIR` | 默认 `results` / `cards`，server 与 listener 必须一致 |
-| `message_identity` | `FEISHU_MESSAGE_IDENTITY` | 默认 `bot`；`user` 需要额外授权；`auto` 保留已有 profile 的 CLI 自动选择行为，回调接收和更新始终使用 bot |
-| `include_session_context` | `FEISHU_INCLUDE_SESSION_CONTEXT` | 默认 `false`；可显式开启，读取本机 Claude Code 会话标题和最后提示并发到飞书 |
+| `user_open_id` | `FEISHU_USER_OPEN_ID` | Users allowed to reply; leave empty to allow anyone in the target chat — suitable for a controlled group. Must not be the example placeholder |
+| `chat_id` | `FEISHU_CHAT_ID` | Required; the bot's private chat or a group the bot has joined |
+| `cli_config_dir` | `LARKSUITE_CLI_CONFIG_DIR` | Default `.lark-cli`; the path is only passed to the CLI — the project never opens the profile |
+| `node_exe` | `FEISHU_NODE_EXE` | Optional Node path; discovered from PATH by default |
+| `lark_cli_run_js` | `FEISHU_LARK_CLI_RUN_JS` | Optional path to the npm package's `scripts/run.js` |
+| `lark_cli_executable` | `FEISHU_LARK_CLI_EXECUTABLE` | Optional native CLI executable path; when set it takes priority over the Node runner. Windows shell shims are not accepted |
+| `results_dir` / `cards_dir` | `FEISHU_RESULTS_DIR` / `FEISHU_CARDS_DIR` | Default `results` / `cards`; server and listener must agree |
+| `message_identity` | `FEISHU_MESSAGE_IDENTITY` | Default `bot`; `user` requires additional authorization; `auto` keeps the CLI's auto-selection behavior for an existing profile. Callback receive and card updates always use bot |
+| `include_session_context` | `FEISHU_INCLUDE_SESSION_CONTEXT` | Default `false`; opt in to read the local Claude Code session title and last prompt and send them to Feishu |
 
-`FEISHU_MCP_CONFIG` 可指定其他配置文件，默认项目内 `config.json`。不要把任何密钥放进这个文件。示例里 `YOUR_OPEN_ID`、`YOUR_CHAT_ID` 需要替换；不用用户限制时将前者设为空字符串。
+`FEISHU_MCP_CONFIG` selects a different config file; the default is `config.json` in the project. Never put any secrets in this file. Replace the example `YOUR_OPEN_ID` / `YOUR_CHAT_ID`; set the former to an empty string when not restricting users.
 
-CLI 探测顺序：显式原生路径 → 显式 Node/JS → PATH 中原生 CLI → 常见 npm 全局/本地 runner。GUI 的 PATH 可能比终端少，遇到差异可在本地配置填完整的 Node / JS 路径。旧自用安装的 profile 也可继续使用，只需保持两进程一致；迁移旧配置时可保留 `auto`，新安装推荐明确选择 `bot`。
+CLI discovery order: explicit native path → explicit Node/JS → native CLI on PATH → common npm global/local runner. A GUI's PATH can be smaller than the terminal's; on mismatch, fill in full Node / JS paths in the local config. A profile from an old personal install also keeps working as long as the two processes agree; you may keep `auto` when migrating, but new installs are recommended to explicitly choose `bot`.
 
-`.env` 被忽略但**不会自动加载**；使用客户端的 `env`、系统环境变量或 `config.json`。
+`.env` is ignored but **not auto-loaded**; use the client's `env`, system environment variables, or `config.json`.
 
-## 注册 MCP
+## Registering the MCP
 
-运行 `python setup.py registration` 生成本机绝对路径片段，存于被忽略的 `.local/`。设置过的受支持环境覆盖也会写入片段，server 和 listener 应使用相同配置。移动项目、换 Python 或修改环境覆盖后需重新生成。
+Run `python setup.py registration` to generate absolute-path snippets stored in the ignored `.local/`. Any supported environment overrides that were set are also written into the snippet; the server and listener should use the same config. Regenerate after moving the project, switching Python, or changing environment overrides.
 
 ### Claude Desktop
 
-打开 **Settings → Developer → Edit Config**，将 `.local/claude-desktop.local.json` 中的 `desktop-feishu` 合并到现有 `claude_desktop_config.json` 的 `mcpServers`，保留其他 server。生成器不替你修改全局文件。示例：
+Open **Settings → Developer → Edit Config** and merge the `desktop-feishu` entry from `.local/claude-desktop.local.json` into the existing `claude_desktop_config.json` under `mcpServers`, keeping other servers. The generator does not modify your global file for you. Example:
 
 ```json
 {
@@ -121,75 +123,75 @@ CLI 探测顺序：显式原生路径 → 显式 Node/JS → PATH 中原生 CLI 
 }
 ```
 
-Windows 使用实际 Python 路径，JSON 路径可写 `/` 或转义为 `\\`。完全退出并重启 Desktop。不要把 listener 注册成 MCP server：它的日志不是 JSON-RPC。
+On Windows use the real Python path; JSON paths may use `/` or escaped `\\`. Quit and restart Desktop completely. Do not register the listener as an MCP server: its log output is not JSON-RPC.
 
 ### Claude Code
 
-在 PowerShell 或 POSIX shell 中运行 `.local/claude-code.local.txt` 里的完整命令，或按 [Claude Code 官方 MCP 文档](https://code.claude.com/docs/en/mcp) 手动注册：
+Run the full command in `.local/claude-code.local.txt` from PowerShell or a POSIX shell, or register manually following the [Claude Code MCP docs](https://code.claude.com/docs/en/mcp):
 
 ```sh
 claude mcp add --transport stdio --scope user desktop-feishu -- /ABSOLUTE/PATH/TO/python /ABSOLUTE/PATH/TO/desktop-feishu-mcp/server.py
 ```
 
-然后在 Claude Code 的 `/mcp` 查看状态。项目是同步 stdio 工具：同一进程一次处理一个调用，不实现 MCP Tasks。客户端自己的工具超时仍然生效，可能早于这里的 `timeout_sec`。
+Then check the status with `/mcp` in Claude Code. The project is a synchronous stdio tool: one process handles one call at a time, and it does not implement MCP Tasks. The client's own tool timeout still applies and may fire earlier than `timeout_sec` here.
 
-## 使用示例
+## Usage
 
-告诉 Claude：“需要我决定时，用 desktop-feishu 的 ask_user 把问题发到飞书。”
+Tell Claude: "When you need my decision, use desktop-feishu's ask_user to send the question to Feishu."
 
 ```json
 {
-  "question": "**输出目录已检查完成**。现在生成预览文件吗？",
-  "options": ["生成预览", "稍后再做"],
+  "question": "**Output directory check is done.** Generate the preview files now?",
+  "options": ["Generate preview", "Later"],
   "level": "warning",
   "timeout_sec": 600
 }
 ```
 
-手机上可以点选，或在意见框输入内容再提交。返回值是用户回复的文本。无回复则返回 `TIMEOUT：等待你的回复超时了。`；空表单提交会返回 `(已确认)`。输入了意见但点快捷选项时，以快捷选项为准。
+On the phone you can tap an option, or type in the opinion box and submit. The return value is the user's reply text. No reply returns `TIMEOUT：等待你的回复超时了。`; an empty form submit returns `(已确认)`. If an opinion was typed but a quick option is tapped, the quick option wins.
 
-| 参数 | 默认值 | 说明 |
+| Parameter | Default | Notes |
 | --- | --- | --- |
-| `question` | 必填 | Markdown 问题 |
-| `options` | 无 | 字符串数组，生成快捷按钮 |
+| `question` | required | Markdown question |
+| `options` | none | String array, generates quick buttons |
 | `level` | `warning` | `notice` / `warning` / `urgent` |
-| `timeout_sec` | `600` | 等待回复的秒数 |
+| `timeout_sec` | `600` | Seconds to wait for a reply |
 
-本工具把用户意见返回给客户端，是否继续执行操作由 AI 客户端负责；超时本身不表示同意。
+The tool returns the user's opinion to the client; whether to proceed is up to the AI client. A timeout by itself is not consent.
 
-## 设计说明与踩坑
+## Design notes and pitfalls
 
-- 保留已验证的卡片 **JSON 2.0** 结构；快捷按钮、意见输入框、提交按钮都在**同一个 form**。
-- form 内按钮用 `form_action_type: "submit"`，不改成普通行为按钮；按钮 `name` 分别是 `o_<request_id>_<hex>` 与 `s_<request_id>`。选项用 UTF-8 hex 编码，listener 用 `rsplit("_", 1)` 解析。
-- 输入框不能设置 `required`，否则没填意见时快捷选项也会被必填校验拦截。
-- `config.update_multi: true` 保留；回调后调用 `interactive/v1/card/update`，发送完整卡片，保留内容、灰色标题、禁用 input/button，再附加回复。
-- consume 子进程 stdin 必须保持打开；listener 用 `PIPE`，并持续读取 stderr 防止阻塞。不加 `--quiet`，连接就绪以 CLI ready 标志判断。见 [CLI 事件契约](https://github.com/larksuite/cli/blob/main/skills/lark-event/SKILL.md)。
-- 使用独立 app/profile，避免和已有消息桥接进程争用或分流回调；不要把“一个应用绝对只能一条连接”当平台通则。
-- 发布整理只抽取配置、明确发送身份、关闭默认会话读取、限制目标用户/会话、校验 request ID、原子写结果和减少日志；卡片字段及表单交互协议保持不变。
-- 卡片发送成功时只等回调；listener 掉线不会自动切到文字轮询。文字回退只用于发送卡片失败，并且只适合单个未完成问题。
+- Preserve the verified card **JSON 2.0** structure; the quick buttons, opinion input, and submit button all live in **one form**.
+- Buttons inside the form use `form_action_type: "submit"` — do not convert them to plain behavior buttons; their `name`s are `o_<request_id>_<hex>` and `s_<request_id>`. The option is UTF-8 hex-encoded, and the listener parses it with `rsplit("_", 1)`.
+- The input must not set `required`, otherwise the quick options are also blocked by required-field validation when the opinion is empty.
+- `config.update_multi: true` is kept; after the callback it calls `interactive/v1/card/update` with the complete card, preserving content, using a grey header, disabling input/button, and appending the reply.
+- The consume subprocess's stdin must stay open; the listener uses `PIPE` and continuously drains stderr to avoid blocking. Do not add `--quiet`; connection readiness is judged by the CLI's ready marker. See the [CLI event contract](https://github.com/larksuite/cli/blob/main/skills/lark-event/SKILL.md).
+- Use a dedicated app/profile to avoid contention or callback routing conflicts with an existing message bridge; do not treat "one app can only ever have one connection" as a platform rule.
+- The publish cleanup only extracts config, makes the send identity explicit, disables default session reading, restricts target user/chat, validates request IDs, writes results atomically, and trims logging; the card fields and form interaction protocol are unchanged.
+- When card sending succeeds it only waits for the callback; a dropped listener does not auto-switch to text polling. Text fallback is only for card-send failure, and only suits a single outstanding question.
 
 ## FAQ
 
-**可以不做 OAuth 吗？** 默认 bot 模式可以；应用凭据通过 CLI 的配置向导管理，应用权限仍需在后台开通并发布。列用户私聊和 `message_identity=user` 才需要用户 OAuth。
+**Can I skip OAuth?** Yes in default bot mode; app credentials are managed through the CLI's config wizard, while app permissions still need enabling and publishing in the console. User OAuth is only needed for listing private chats and `message_identity=user`.
 
-**卡片能收到、点击没有回复？** 检查 listener 日志是否有 `consume ready`；再检查 **事件与回调 → 回调配置** 是否添加新版 `card.action.trigger`、发布范围、两进程 profile 和目录是否一致、配置用户是否与点击者一致。CLI 官方明确说明：[consume 启动不能检测后台回调开关](https://github.com/larksuite/cli/blob/main/skills/lark-im/references/lark-im-card-action-reply.md)。
+**Card is received but tapping gives no reply?** Check the listener log for `consume ready`; then check **Events & Callbacks → Callback Config** that the new `card.action.trigger` is added, the publish scope, that both processes use the same profile and directories, and that the configured user matches the tapper. The CLI officially states: [starting `consume` cannot detect whether the console callback switch is on](https://github.com/larksuite/cli/blob/main/skills/lark-im/references/lark-im-card-action-reply.md).
 
-**找不到私聊 chat ID？** bot 的 chat-list 不能枚举私聊；可选 OAuth 后用 `python setup.py chats --identity user` 列出第一页用户会话，选择机器人私聊；更早会话需按 CLI `--help` 的分页参数查找。也可在飞书 API 调试台读取你与该机器人的消息/回调中的 chat ID。不要误选你与其他人的普通私聊。
+**Can't find the private-chat chat ID?** A bot's chat-list cannot enumerate private chats; after optional OAuth, run `python setup.py chats --identity user` to list the first page of user chats and pick the bot private chat; earlier chats need the CLI `--help` paging parameters. You can also read the chat ID from messages/callbacks between you and the bot in the Feishu API console. Don't pick an ordinary private chat with another person by mistake.
 
-**消息权限报错？** bot 权限在开发者后台开通并发布；用户 OAuth 还需同意对应 scope。`verify` 的消息读取通过只证明该读取调用成功；发消息和回调需实际点卡验收。
+**Message permission errors?** Bot permissions are enabled and published in the developer console; user OAuth also requires consenting to the relevant scopes. `verify` passing the message-read test only proves that read call succeeded; sending messages and callbacks need a real tap test.
 
-**命令行可用，Desktop 不可用？** 使用生成的绝对 Python 路径，并在本地配置填写 Node / runner 路径；重启客户端和 listener。stdout 只能承载 MCP JSON-RPC，不能向 server stdout 打印调试信息。
+**Works in terminal but not Desktop?** Use the generated absolute Python path, and fill in the Node / runner paths in the local config; restart the client and listener. stdout must carry only MCP JSON-RPC — do not print debug info to the server's stdout.
 
-**可多人使用吗？** 推荐受控私聊。若用群聊，配置 `user_open_id` 限定回复者；留空时群内任何人的回复都可能被接受。多个并发问题用不同请求 ID，但同一个 server 仍为同步处理。
+**Can multiple people use it?** A controlled private chat is recommended. For a group, set `user_open_id` to restrict repliers; when empty, any group member's reply may be accepted. Multiple concurrent questions use different request IDs, but a single server is still synchronous.
 
-**本地存了什么？** `cards/` 保存问题卡片，`results/` 暂存表单回复，收到回复后 server 删除对应结果。原卡、未消费/迟到的结果和旧日志不会自动清理，需要自行管理。程序不记录回调 token 或完整 CLI 响应；CLI 本身的认证存储由 CLI 管理。历史自用日志也应保持忽略。
+**What is stored locally?** `cards/` keeps the question cards, `results/` temporarily stores form replies, and the server deletes the matching result after receiving it. Original cards, unconsumed/late results, and old logs are not auto-cleaned — manage them yourself. The program does not record callback tokens or full CLI responses; the CLI manages its own auth storage. Old personal logs should also stay ignored.
 
-## 开发与发布
+## Development and release
 
-运行 `python -m unittest discover -s tests -v` 做离线回归；`python package.py --check` 检查待发布文件是否残留真实标识/个人路径及未列入发布清单的文件；`python package.py` 生成 `.local/dist/desktop-feishu-mcp.zip`，只包含明确列出的公开文件，不包括本地配置与消息缓存。
+Run `python -m unittest discover -s tests -v` for offline regression; `python package.py --check` checks the to-be-published files for real identifiers / personal paths and files outside the publish manifest; `python package.py` produces `.local/dist/desktop-feishu-mcp.zip`, containing only the explicitly listed public files, without local config or message caches.
 
-提交代码前仍需检查实际暂存区；`.gitignore` 不会移除已跟踪文件。不要直接压缩整个自用目录。具体协作流程见 [CONTRIBUTING.md](CONTRIBUTING.md)，测试与实测范围见 [docs/verification.md](docs/verification.md)。
+Still inspect the actual staging area before committing; `.gitignore` does not remove already-tracked files. Do not zip the whole personal directory directly. See [CONTRIBUTING.md](CONTRIBUTING.md) for the collaboration workflow and [docs/verification.md](docs/verification.md) for the test and manual-verification scope.
 
 ## License
 
-[MIT](LICENSE)。本项目独立于飞书、Anthropic 及其官方客户端；Python、Node.js、lark-cli 和客户端遵守各自的许可证与使用条款。
+[MIT](LICENSE). This project is independent of Feishu, Anthropic, and their official clients; Python, Node.js, lark-cli, and the clients are subject to their own licenses and terms.
