@@ -35,6 +35,7 @@ sequenceDiagram
 - Falls back to a text message plus polling when card sending fails.
 - Windows, macOS, and Linux configuration and CLI discovery; foreground, background, and startup-config generation.
 - Local config and environment variables; all credentials are handled by lark-cli.
+- Sends an in-app urgent notification after sending the card, so it buzzes the phone even under mute.
 
 ## Prerequisites
 
@@ -169,6 +170,7 @@ The tool returns the user's opinion to the client; whether to proceed is up to t
 - Use a dedicated app/profile to avoid contention or callback routing conflicts with an existing message bridge; do not treat "one app can only ever have one connection" as a platform rule.
 - The publish cleanup only extracts config, makes the send identity explicit, disables default session reading, restricts target user/chat, validates request IDs, writes results atomically, and trims logging; the card fields and form interaction protocol are unchanged.
 - When card sending succeeds it only waits for the callback; a dropped listener does not auto-switch to text polling. Text fallback is only for card-send failure, and only suits a single outstanding question.
+- After the card is sent, it calls `im.messages.urgent_app` (in-app urgent) on the target user to force a phone notification that pierces mute and per-app notification settings. This requires the app to enable the `im:message.urgent` scope (auto-approved) and publish a version; without it the urgent call fails silently and does not affect the main flow. Text fallback messages are not made urgent.
 
 ## FAQ
 

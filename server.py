@@ -66,16 +66,16 @@ def _latest_position():
 # 卡片等级 → header 颜色/图标/标题文案
 _LEVEL_META = {
     "notice":  {"emoji": "ℹ️", "template": "blue",   "label": "Desktop 需要你确认"},
-    "warning": {"emoji": "⚠️", "template": "orange", "label": "Desktop 需要你拍板"},
-    "urgent":  {"emoji": "🔴", "template": "red",    "label": "Desktop 紧急确认"},
+    "warning": {"emoji": "⚠️", "template": "orange", "label": "Desktop 需要你确认"},
+    "urgent":  {"emoji": "⚠️", "template": "orange", "label": "Desktop 需要你确认"},
 }
 
 
-def _send_message(markdown):
+def _send_message(markdown, as_identity="bot"):
     data, err, code = _lark_json(
         ["im", "+messages-send",
          "--chat-id", CHAT_ID,
-         "--as", CONFIG["message_identity"],
+         "--as", as_identity,
          "--markdown", markdown]
     )
     return code == 0 and bool(data)
@@ -251,13 +251,14 @@ def _send_card(question, level="warning", options=None, request_id=None):
     data, err, code = _lark_json(
         ["im", "+messages-send",
          "--chat-id", CHAT_ID,
-         "--as", CONFIG["message_identity"],
+         "--as", "bot",
          "--msg-type", "interactive",
          "--content", card_str]
     )
-    if code == 0 and bool(data) and request_id:
+    ok = code == 0 and bool(data)
+    if ok and request_id:
         _save_card(request_id, card)  # 存原卡，供 listener 点完重建
-    return (code == 0 and bool(data)), err, code
+    return ok, err, code
 
 
 def _wait_for_answer(request_id, baseline_position, timeout_sec):
