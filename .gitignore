@@ -1,0 +1,36 @@
+# Local configuration, credentials and generated registration/service files
+config.json
+config.local.*
+.env
+.env.*
+!.env.example
+.lark-cli/
+.local/
+*.local.json
+*.local.*
+*credentials*
+*secrets*
+*.pem
+*.key
+
+# Message content and callback state
+cards/
+results/
+*.log
+*.log.*
+*.pid
+
+# Python, editors and local verification tools
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.tools/
+.pytest_cache/
+.coverage
+htmlcov/
+node_modules/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

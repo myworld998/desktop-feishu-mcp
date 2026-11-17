@@ -1,0 +1,12 @@
+{
+  "user_open_id": "YOUR_OPEN_ID",
+  "chat_id": "YOUR_CHAT_ID",
+  "cli_config_dir": ".lark-cli",
+  "node_exe": "",
+  "lark_cli_run_js": "",
+  "lark_cli_executable": "",
+  "results_dir": "results",
+  "cards_dir": "cards",
+  "message_identity": "bot",
+  "include_session_context": false
+}
